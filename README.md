@@ -24,7 +24,9 @@
 - **Live Audio Visualization** - See your voice as you speak
 - **Clipboard Auto-Copy** - Transcribed text is automatically copied to clipboard
 - **Microphone Selection** - Choose your preferred input device
+- **Microphone Persistence** - Your selected microphone is remembered between sessions
 - **Pixel-Level Detection** - Smart click-through technology that analyzes transparency
+- **Silence Detection** - Automatically detects if no speech is present to save API usage
 
 ## 🚀 Demo
 
@@ -87,11 +89,12 @@ VibeTranscribe combines several technologies:
 5. **Global Keyboard Shortcuts**: Enables system-wide control
 
 The application flow:
-1. User selects their preferred microphone
+1. User selects their preferred microphone (selection is saved for future sessions)
 2. User activates recording with keyboard shortcut (`Ctrl+Shift+R`)
 3. UI shows recording status with animated visualizer
 4. Upon stopping (press `Esc`), audio is sent to OpenAI's Whisper API
 5. Transcribed text is automatically copied to clipboard for immediate use
+6. If clipboard access fails, the text is saved to localStorage as a backup
 
 ## 🔧 Production Build Notes
 
@@ -100,6 +103,7 @@ The app uses electron-builder for packaging and distribution. Key configuration:
 - Assets are loaded with relative paths using Vite's `base: './'` setting
 - The app includes robust path resolution to find resources in the packaged app
 - Required fields in package.json: `homepage`, `author`, and `description`
+- Environment variables are properly handled in both development and production
 
 ### Troubleshooting
 
@@ -112,7 +116,10 @@ If you encounter a blank/invisible window after building:
 ## ⌨️ Global Keyboard Shortcuts
 
 - `Ctrl + Shift + R` - Start Recording
+  - Works system-wide, even when the app is in the background
+  - Will bring the app to focus if it's minimized
 - `Esc` - Stop Recording & Transcribe
+  - Only works when the app is focused
 
 ## 🔍 Project Structure
 
@@ -137,6 +144,8 @@ VibeTranscribe/
 │   ├── services/              # Service modules
 │   │   ├── ClipboardManager.ts    # Clipboard operations
 │   │   ├── TranscriptionProcessor.ts # Audio transcription
+│   │   ├── ErrorHandler.ts    # Error handling and reporting
+│   ├── types/                 # TypeScript type definitions
 │   ├── App.tsx                # Main React component
 │   ├── main.tsx               # Entry point
 ├── dist/                      # Built application
@@ -152,6 +161,7 @@ VibeTranscribe/
 - **API Key**: Verify your OpenAI API key is correctly set in the `.env` file
 - **Keyboard Shortcuts**: Make sure no other application is using the same keyboard shortcuts
 - **Blank Screen After Build**: See the Production Build Notes section for solutions
+- **Keyboard Shortcut Not Working**: Try restarting the app or check if another app is capturing the shortcut
 
 ## 📄 License
 

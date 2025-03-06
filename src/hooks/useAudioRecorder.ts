@@ -158,16 +158,21 @@ const useAudioRecorder = ({
   // Start recording audio with enhanced session handling
   const startRecording = useCallback(async () => {
     try {
+      console.log('🔴 DIRECT DEBUG: startRecording function called in useAudioRecorder');
+      
       if (isRecording) {
         logger.debug('RECORD', 'Already recording, ignoring start request');
+        console.log('🔴 DIRECT DEBUG: Already recording, ignoring start request');
         return;
       }
       if (isProcessing) {
         logger.debug('RECORD', 'Currently processing, ignoring start request');
+        console.log('🔴 DIRECT DEBUG: Currently processing, ignoring start request');
         return;
       }
       
       logger.flow('START_RECORDING', 'Beginning audio recording process');
+      console.log('🔴 DIRECT DEBUG: Beginning audio recording process');
       
       // Clean up existing recording state first
       cleanup();
@@ -387,13 +392,35 @@ const useAudioRecorder = ({
     if (electron) {
       logger.debug('ELECTRON', 'Setting up Electron event listeners');
       
+      // Simple direct handler for start recording
       const removeStartListener = electron.onStartRecording(() => {
-        logger.info('HOTKEY', 'Global hotkey triggered: start recording');
+        logger.info('HOTKEY', 'Received start-recording event from Electron');
+        console.log('🔴 DIRECT DEBUG: onStartRecording callback triggered in useAudioRecorder');
+        
+        // Only start recording if we have a microphone and aren't already recording
+        if (!selectedMicrophoneId) {
+          logger.warn('HOTKEY', 'Cannot start recording: No microphone selected');
+          setError('Please select a microphone first');
+          return;
+        }
+        
+        if (isProcessing) {
+          logger.warn('HOTKEY', 'Cannot start recording: Already processing audio');
+          return;
+        }
+        
+        if (isRecording) {
+          logger.warn('HOTKEY', 'Already recording, ignoring start request');
+          return;
+        }
+        
+        // Start recording directly
+        logger.info('HOTKEY', 'Starting recording via hotkey');
         startRecording();
       });
       
       const removeStopListener = electron.onStopRecording(() => {
-        logger.info('HOTKEY', 'Global hotkey triggered: stop recording');
+        logger.info('HOTKEY', 'Received stop-recording event from Electron');
         stopRecording();
       });
       
@@ -405,7 +432,43 @@ const useAudioRecorder = ({
     }
     
     return undefined;
-  }, [startRecording, stopRecording]);
+  }, [startRecording, stopRecording, selectedMicrophoneId, isRecording, isProcessing]);
+  
+  // Add direct event listener for custom event
+  useEffect(() => {
+    // Function to handle the custom event
+    const handleCustomEvent = () => {
+      console.log('🔴 DIRECT DEBUG: Custom event received in useAudioRecorder hook');
+      logger.info('AUDIO', 'Custom start-recording event received');
+      
+      if (!selectedMicrophoneId) {
+        logger.warn('AUDIO', 'Cannot start recording: No microphone selected');
+        setError('Please select a microphone first');
+        return;
+      }
+      
+      if (isProcessing) {
+        logger.warn('AUDIO', 'Cannot start recording: Already processing');
+        return;
+      }
+      
+      if (isRecording) {
+        logger.warn('AUDIO', 'Already recording, ignoring start request');
+        return;
+      }
+      
+      logger.info('AUDIO', 'Starting recording via custom event');
+      startRecording();
+    };
+    
+    // Add the event listener
+    window.addEventListener('vibe-start-recording', handleCustomEvent);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('vibe-start-recording', handleCustomEvent);
+    };
+  }, [startRecording, stopRecording, selectedMicrophoneId, isRecording, isProcessing]);
   
   return {
     isRecording,

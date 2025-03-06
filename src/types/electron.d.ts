@@ -3,6 +3,7 @@
  */
 
 export interface ElectronAPI {
+  startRecording: () => void;
   onStartRecording: (callback: () => void) => () => void;
   onStopRecording: (callback: () => void) => () => void;
   stopRecording: () => void;

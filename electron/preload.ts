@@ -16,10 +16,26 @@ logPreload('ENV', `VITE_OPENAI_API_KEY available: ${!!process.env.VITE_OPENAI_AP
 // the ipcRenderer without exposing the entire object
 logPreload('BRIDGE', 'Setting up context bridge for renderer process', '🌉');
 
+// Add direct event listener for debugging
+ipcRenderer.on('start-recording', () => {
+  console.log('🔴 DIRECT DEBUG: start-recording event received in preload');
+});
+
 contextBridge.exposeInMainWorld('electron', {
   startRecording: () => {
-    logPreload('IPC', 'Sending start-recording event', '⏺️');
+    logPreload('IPC', 'startRecording function called in preload', '⏺️');
+    console.log('🔴 DIRECT DEBUG: startRecording function called in preload');
+    
+    // Send the event to the main process
     ipcRenderer.send('start-recording');
+    
+    // Also try to directly dispatch a custom event to the window
+    try {
+      console.log('🔴 DIRECT DEBUG: Dispatching custom event to window');
+      window.dispatchEvent(new CustomEvent('vibe-start-recording'));
+    } catch (err) {
+      console.error('🔴 DIRECT DEBUG: Error dispatching custom event:', err);
+    }
   },
   stopRecording: () => {
     logPreload('IPC', 'Sending stop-recording event', '⏹️');
@@ -69,13 +85,19 @@ contextBridge.exposeInMainWorld('electron', {
   // Event listeners
   onStartRecording: (callback: () => void) => {
     logPreload('IPC', 'Registering start-recording event listener', '👂');
-    ipcRenderer.on('start-recording', () => {
-      logPreload('IPC', 'Received start-recording event', '📥');
+    
+    // Simple direct handler for start recording event
+    const handleStartRecording = () => {
+      logPreload('IPC', 'Received start-recording event, triggering callback', '🎤');
       callback();
-    });
+    };
+    
+    // Listen for the start-recording event
+    ipcRenderer.on('start-recording', handleStartRecording);
+    
     return () => {
       logPreload('IPC', 'Removing start-recording event listener', '🗑️');
-      ipcRenderer.removeListener('start-recording', callback);
+      ipcRenderer.removeListener('start-recording', handleStartRecording);
     };
   },
   onStopRecording: (callback: () => void) => {

@@ -18,6 +18,7 @@ function App() {
   const [showTranscription, setShowTranscription] = useState(false);
   const [envError, setEnvError] = useState<string | null>(null);
   const [clipboardFailed, setClipboardFailed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Track current session ID for clipboard operations
   const currentSessionIdRef = useRef<string>('');
@@ -71,11 +72,32 @@ function App() {
     stopRecording,
     audioData,
     isProcessing,
-    error
+    error: recorderError
   } = useAudioRecorder({
     selectedMicrophoneId,
     onTranscriptionComplete: handleTranscriptionComplete,
   });
+  
+  // Make startRecording function directly accessible from window object for debugging
+  useEffect(() => {
+    interface CustomWindow extends Window {
+      vibeStartRecording?: () => boolean;
+    }
+
+    (window as CustomWindow).vibeStartRecording = () => {
+      console.log('🔴 DIRECT DEBUG: vibeStartRecording called from window object');
+      if (startRecording) {
+        startRecording();
+        return true;
+      }
+      return false;
+    };
+    
+    return () => {
+      // Clean up
+      delete (window as CustomWindow).vibeStartRecording;
+    };
+  }, [startRecording]);
 
   // Close the transcription popup
   const handleCloseTranscription = useCallback(() => {
@@ -85,10 +107,11 @@ function App() {
   
   // Log app state changes, but only when there are actual changes worth logging
   useEffect(() => {
-    if (error) {
-      logger.error('UI', `Error state: ${error}`);
+    if (recorderError) {
+      logger.error('UI', `Error state: ${recorderError}`);
+      setError(recorderError);
     }
-  }, [error]);
+  }, [recorderError]);
 
   // Add separate effect for recording state changes
   useEffect(() => {
@@ -103,7 +126,67 @@ function App() {
   const handleSelectMicrophone = useCallback((deviceId: string) => {
     logger.info('MIC', `User selected microphone: ${deviceId}`);
     setSelectedMicrophoneId(deviceId);
+    // Clear any error when a new microphone is selected
+    setError(null);
+    
+    // Store the selected microphone in localStorage for persistence
+    try {
+      localStorage.setItem('selectedMicrophoneId', deviceId);
+      logger.debug('MIC', 'Saved microphone selection to localStorage');
+    } catch (err) {
+      logger.warn('MIC', `Failed to save microphone selection: ${err}`);
+    }
   }, []);
+  
+  // Load saved microphone on mount
+  useEffect(() => {
+    try {
+      const savedMicId = localStorage.getItem('selectedMicrophoneId');
+      if (savedMicId) {
+        logger.info('MIC', `Loaded saved microphone selection: ${savedMicId}`);
+        setSelectedMicrophoneId(savedMicId);
+      }
+    } catch (err) {
+      logger.warn('MIC', `Failed to load saved microphone selection: ${err}`);
+    }
+  }, []);
+
+  // Add direct event listener for custom event
+  useEffect(() => {
+    // Function to handle the custom event
+    const handleCustomEvent = () => {
+      console.log('🔴 DIRECT DEBUG: Custom event received in App component');
+      logger.info('APP', 'Custom start-recording event received');
+      
+      if (!selectedMicrophoneId) {
+        logger.warn('APP', 'Cannot start recording: No microphone selected');
+        setError('Please select a microphone first');
+        return;
+      }
+      
+      if (isProcessing) {
+        logger.warn('APP', 'Cannot start recording: Already processing');
+        return;
+      }
+      
+      if (isRecording) {
+        logger.info('APP', 'Already recording, stopping instead');
+        stopRecording();
+        return;
+      }
+      
+      logger.info('APP', 'Starting recording via custom event');
+      startRecording();
+    };
+    
+    // Add the event listener
+    window.addEventListener('vibe-start-recording', handleCustomEvent);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('vibe-start-recording', handleCustomEvent);
+    };
+  }, [selectedMicrophoneId, isRecording, isProcessing, startRecording, stopRecording]);
 
   // Determine which error to display to user (prioritize env error)
   const displayError = envError || error;
@@ -167,14 +250,23 @@ function App() {
             ? 'bg-gray-700 cursor-wait'
             : envError
             ? 'bg-gray-600 cursor-not-allowed opacity-60'
-            : 'bg-purple-600 hover:bg-purple-700'
+            : selectedMicrophoneId 
+            ? 'bg-purple-600 hover:bg-purple-700'
+            : 'bg-gray-600 cursor-not-allowed opacity-60'
         }`}
         onClick={() => {
+          console.log('🔴 DIRECT DEBUG: Record button clicked');
           if (isRecording) {
             logger.flow('UI_ACTION', 'User clicked stop recording button');
             stopRecording();
           } else {
+            if (!selectedMicrophoneId) {
+              logger.warn('UI', 'Cannot start recording: No microphone selected');
+              setError('Please select a microphone first');
+              return;
+            }
             logger.flow('UI_ACTION', 'User clicked start recording button');
+            console.log('🔴 DIRECT DEBUG: Starting recording from button click');
             // Clear any existing transcription when starting a new recording
             if (showTranscription) {
               logger.info('UI', 'Clearing previous transcription before starting new recording');

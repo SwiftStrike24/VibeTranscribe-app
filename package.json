@@ -1,7 +1,7 @@
 {
   "name": "vibetranscribe",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "homepage": "./",
   "description": "A lightweight, non-intrusive voice-to-text desktop app that allows users to press a hotkey, speak, and instantly get transcribed text copied to their clipboard.",

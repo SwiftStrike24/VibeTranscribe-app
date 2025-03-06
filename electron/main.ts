@@ -257,7 +257,42 @@ function createWindow() {
   globalShortcut.register('CommandOrControl+Shift+R', () => {
     if (mainWindow) {
       logMain('HOTKEY', 'Global hotkey triggered: CommandOrControl+Shift+R (Start Recording)', '🎤');
-      mainWindow.webContents.send('start-recording');
+      
+      // Ensure the window is visible and focused
+      if (!mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+      
+      if (!mainWindow.isFocused()) {
+        logMain('HOTKEY', 'Bringing window to front for hotkey action', '🔝');
+        mainWindow.focus();
+      }
+      
+      // SUPER DIRECT APPROACH: Try multiple methods to trigger recording
+      logMain('HOTKEY', 'Trying multiple methods to trigger recording', '🔥');
+      
+      // Method 1: Try the direct window function
+      mainWindow.webContents.executeJavaScript(`
+        console.log('🔴 DIRECT DEBUG: Trying to start recording from main process');
+        
+        // Method 1: Try the direct window function
+        if (window.vibeStartRecording) {
+          console.log('🔴 DIRECT DEBUG: Using window.vibeStartRecording');
+          window.vibeStartRecording();
+        } 
+        // Method 2: Try the electron API
+        else if (window.electron) {
+          console.log('🔴 DIRECT DEBUG: Using window.electron.startRecording');
+          window.electron.startRecording();
+        }
+        // Method 3: Try dispatching a custom event
+        else {
+          console.log('🔴 DIRECT DEBUG: Dispatching custom event');
+          window.dispatchEvent(new CustomEvent('vibe-start-recording'));
+        }
+      `).catch(err => {
+        logMain('ERROR', `Failed to execute JavaScript in renderer: ${err}`, '❌');
+      });
     }
   });
 
@@ -311,6 +346,12 @@ app.on('window-all-closed', () => {
 });
 
 // Handle IPC messages from renderer
+ipcMain.on('start-recording', () => {
+  logMain('IPC', 'Start recording command received from renderer', '▶️');
+  // We don't need to send the event back to the renderer
+  // This was causing a circular reference
+});
+
 ipcMain.on('stop-recording', () => {
   logMain('IPC', 'Stop recording command received', '⏹️');
 });
